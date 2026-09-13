@@ -1,0 +1,186 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link rel="stylesheet" href="game301.css">
+    <title>flechette</title>
+</head>
+<body>
+    <input type="text" id="team" placeholder="Nom du joueur">
+    <button id="btn-ajouter">Ajouter</button>
+    <button id="btn-supprimer">Supprimer Dernier</button>
+    <ul id="liste-joueurs"></ul>
+    <p id="result"></p>
+    <button id="btn-lancer">Lancer le jeu</button>
+
+    <button class="shadow__btn" onclick="window.location.href='../game/game.html'">Retour</button>
+
+<script>
+document.addEventListener("DOMContentLoaded", () => {
+    // URL de l'API utilisee par l'ecran de creation des joueurs.
+    const API_BASE_URL = "http://localhost:3010";
+    const JOUEURS_API_URL = `${API_BASE_URL}/api/game301/joueurs`;
+    const PARTIES_API_URL = `${API_BASE_URL}/api/game301/parties`;
+
+    class GestionJoueurs {
+        constructor() {
+            // Etat local de la page: il sert a afficher la liste sans recharger la page.
+            this.joueurs = [];
+            this.inputTeam = document.getElementById("team");
+            this.result = document.getElementById("result");
+            this.liste = document.getElementById("liste-joueurs");
+            this.btnAjouter = document.getElementById("btn-ajouter");
+            this.btnSupprimer = document.getElementById("btn-supprimer");
+            this.btnLancer = document.getElementById("btn-lancer");
+
+            // Branche les boutons HTML aux methodes de la classe.
+            this.btnAjouter.addEventListener("click", () => this.ajouterJoueur());
+            this.btnSupprimer.addEventListener("click", () => this.supprimerDernierJoueur());
+            this.btnLancer.addEventListener("click", () => this.lancerJeu());
+            this.inputTeam.addEventListener("keydown", (event) => {
+                // Permet d'ajouter un joueur avec la touche Entree.
+                if (event.key === "Enter") {
+                    this.ajouterJoueur();
+                }
+            });
+        }
+
+        async initialiser() {
+            try {
+                // Recharge les joueurs deja presents en base a l'ouverture de la page.
+                const response = await fetch(JOUEURS_API_URL);
+
+                if (!response.ok) {
+                    this.result.textContent = "Impossible de charger la liste des joueurs.";
+                    return;
+                }
+
+                this.joueurs = await response.json();
+                this.renderListe();
+
+                if (this.joueurs.length > 0) {
+                    this.result.textContent = `${this.joueurs.length} joueur(s) charge(s).`;
+                }
+            } catch (err) {
+                this.result.textContent = "Impossible de contacter le serveur.";
+                console.error(err);
+            }
+        }
+
+        renderListe() {
+            // Re-dessine toute la liste a partir du tableau this.joueurs.
+            this.liste.innerHTML = "";
+
+            this.joueurs.forEach((joueur) => {
+                const li = document.createElement("li");
+                li.textContent = joueur.nom;
+                this.liste.appendChild(li);
+            });
+        }
+
+        async ajouterJoueur() {
+            const team = this.inputTeam.value.trim();
+
+            if (team === "") {
+                this.result.textContent = "Veuillez rentrer un nom !";
+                return;
+            }
+
+            if (this.joueurs.length >= 5) {
+                this.result.textContent = "Maximum 5 joueurs atteint !";
+                return;
+            }
+
+            try {
+                // Cree le joueur en base.
+                const response = await fetch(JOUEURS_API_URL, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ nom: team })
+                });
+
+                if (!response.ok) {
+                    this.result.textContent = "Erreur lors de l'ajout en BDD !";
+                    return;
+                }
+
+                const data = await response.json();
+                // Une fois la base mise a jour, on synchronise l'affichage local.
+                this.joueurs.push(data.joueur);// On re-affiche la liste avec le nouveau joueur ajoute.
+                this.renderListe();// Et on affiche un message de succes.
+                // Affiche un message de succes avec le nombre de joueurs actuel.
+                this.result.textContent = `Joueur ajoute ! (${this.joueurs.length}/5)`;
+                this.inputTeam.value = "";
+
+            } catch (err) {
+                this.result.textContent = "Impossible de contacter le serveur.";
+                console.error(err);
+            }
+        }
+        // Supprime le dernier joueur ajoute, en envoyant une requete DELETE a l'API qui s'occupe de supprimer le dernier joueur en base.
+        async supprimerDernierJoueur() {
+            if (this.joueurs.length === 0) {
+                this.result.textContent = "Aucun joueur a supprimer";
+                return;
+            }
+
+            try {
+                // Supprime le dernier joueur en base pour rester coherent avec la liste affichee.
+                const response = await fetch(`${JOUEURS_API_URL}/dernier`, {
+                    method: "DELETE"
+                });
+                // Si la reponse n'est pas OK, on affiche une erreur et on ne modifie pas l'affichage local.
+                if (!response.ok) {
+                    this.result.textContent = "Erreur lors de la suppression en BDD !";
+                    return;
+                }
+                // Une fois la base mise a jour, on synchronise l'affichage local.
+                this.joueurs.pop();
+                this.renderListe();
+                this.result.textContent = `Joueur supprime ! (${this.joueurs.length}/5)`;
+            } catch (err) {
+                this.result.textContent = "Impossible de contacter le serveur.";
+                console.error(err);
+            }
+        }
+
+        async lancerJeu() {
+            if (this.joueurs.length < 1) {
+                this.result.textContent = "Ajoutez au moins 1 joueur !";
+            } else {
+                try {
+                    const response = await fetch(PARTIES_API_URL, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({
+                            joueurIds: this.joueurs.map((joueur) => joueur.id)
+                        })
+                    });
+
+                    const data = await response.json();
+
+                    if (!response.ok) {
+                        this.result.textContent = data.message || "Impossible de creer la partie.";
+                        return;
+                    }
+
+                    localStorage.setItem("game301PartieId", String(data.partie.id));
+                    localStorage.setItem("game301Players", JSON.stringify(data.partie.joueurs));
+                    window.location.href = "../lancement/lancement.html";
+                } catch (err) {
+                    this.result.textContent = "Impossible de contacter le serveur.";
+                    console.error(err);
+                }
+            }
+        }
+    }
+
+    // Instance unique qui pilote tout l'ecran game301.
+    window.gestionJoueurs = new GestionJoueurs();
+    window.gestionJoueurs.initialiser();
+});
+
+</script>
+</body>
+</html>

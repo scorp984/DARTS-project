@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Partie 301</title>
+    <style>
+        body {
+            margin: 0;
+            min-height: 100vh;
+            font-family: Arial, sans-serif;
+            background: #111827;
+            color: #f9fafb;
+        }
+
+        .toolbar {
+            display: flex;
+            gap: 12px;
+            align-items: center;
+            padding: 16px;
+            background: #0f172a;
+        }
+
+        button {
+            padding: 10px 14px;
+            border: 0;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 700;
+        }
+
+        .game-board {
+            display: grid;
+            grid-template-columns: repeat(2, minmax(180px, 1fr));
+            gap: 16px;
+            padding: 24px;
+        }
+
+        .player {
+            min-height: 120px;
+            padding: 18px;
+            border: 2px solid #334155;
+            border-radius: 8px;
+            background: #1f2937;
+        }
+
+        .player.active {
+            border-color: #22c55e;
+        }
+
+        .player.winner {
+            border-color: #facc15;
+        }
+
+        .player-name {
+            margin: 0 0 12px;
+            font-size: 24px;
+            font-weight: 800;
+        }
+
+        .player-score {
+            margin: 0;
+            font-size: 36px;
+            font-weight: 800;
+        }
+
+        .center {
+            padding: 0 24px 24px;
+        }
+
+        .history {
+            margin-top: 16px;
+            padding: 16px;
+            background: #0f172a;
+            border-radius: 8px;
+        }
+
+        .history p {
+            margin: 6px 0;
+        }
+    </style>
+</head>
+<body>
+    <div class="toolbar">
+        <button onclick="window.location.href='../game301/game.html'">Retour</button>
+        <button id="btn-vision-start">Start vision</button>
+        <button id="btn-vision-stop">Stop vision</button>
+        <button id="btn-test-20">Test +20</button>
+        <span id="status"></span>
+    </div>
+
+    <div class="game-board" id="game-board"></div>
+
+    <div class="center">
+        <p id="current-turn">Chargement de la partie...</p>
+        <p id="current-score"></p>
+        <div class="history" id="history"></div>
+    </div>
+
+    <script>
+    const API_BASE_URL = "http://localhost:3010";
+    const partieId = localStorage.getItem("game301PartieId");
+    const board = document.getElementById("game-board");
+    const statusText = document.getElementById("status");
+    const currentTurn = document.getElementById("current-turn");
+    const currentScore = document.getElementById("current-score");
+    const history = document.getElementById("history");
+
+    async function fetchJson(url, options = {}) {
+        const response = await fetch(url, options);
+        const data = await response.json().catch(() => ({}));
+
+        if (!response.ok) {
+            throw new Error(data.message || `Erreur HTTP ${response.status}`);
+        }
+
+        return data;
+    }
+
+    function renderPartie(partie) {
+        board.innerHTML = "";
+
+        partie.joueurs.forEach((joueur, index) => {
+            const div = document.createElement("div");
+            div.className = "player";
+            if (partie.joueurCourant && partie.joueurCourant.id === joueur.id && partie.statut === "active") {
+                div.classList.add("active");
+            }
+            if (partie.gagnant && partie.gagnant.id === joueur.id) {
+                div.classList.add("winner");
+            }
+
+            div.innerHTML = `
+                <p class="player-name">${index + 1}. ${joueur.nom}</p>
+                <p class="player-score">${joueur.score_restant}</p>
+            `;
+            board.appendChild(div);
+        });
+
+        if (partie.statut === "terminee" && partie.gagnant) {
+            currentTurn.textContent = `Partie terminee : ${partie.gagnant.nom} gagne.`;
+            currentScore.textContent = "";
+        } else if (partie.joueurCourant) {
+            currentTurn.textContent = `Tour ${partie.tour} - A ${partie.joueurCourant.nom} de jouer`;
+            currentScore.textContent = `Score restant : ${partie.joueurCourant.score_restant}`;
+        } else {
+            currentTurn.textContent = "Aucun joueur courant.";
+            currentScore.textContent = "";
+        }
+
+        history.innerHTML = "<strong>Derniers tirs</strong>";
+        partie.lancers.forEach((lancer) => {
+            const p = document.createElement("p");
+            const bust = lancer.bust ? " - bust" : "";
+            p.textContent = `${lancer.created_at} | joueur ${lancer.joueur_id} | ${lancer.segment || lancer.status} | ${lancer.score}${bust}`;
+            history.appendChild(p);
+        });
+    }
+
+    async function chargerPartie() {
+        if (!partieId) {
+            currentTurn.textContent = "Aucune partie chargee.";
+            return;
+        }
+
+        try {
+            const partie = await fetchJson(`${API_BASE_URL}/api/game301/parties/${partieId}`);
+            renderPartie(partie);
+            statusText.textContent = "Connecte";
+        } catch (err) {
+            statusText.textContent = err.message;
+        }
+    }
+
+    async function visionCommand(pathname) {
+        try {
+            const data = await fetchJson(`${API_BASE_URL}${pathname}`, { method: "POST" });
+            statusText.textContent = data.message || data.state || "Commande envoyee";
+        } catch (err) {
+            statusText.textContent = err.message;
+        }
+    }
+
+    document.getElementById("btn-vision-start").addEventListener("click", () => {
+        visionCommand("/api/vision/start");
+    });
+
+    document.getElementById("btn-vision-stop").addEventListener("click", () => {
+        visionCommand("/api/vision/stop");
+    });
+
+    document.getElementById("btn-test-20").addEventListener("click", async () => {
+        if (!partieId) {
+            return;
+        }
+
+        try {
+            await fetchJson(`${API_BASE_URL}/api/game301/parties/${partieId}/lancers`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ score: 20, segment: "S20", ring: "SINGLE", multiplier: 1 })
+            });
+            await chargerPartie();
+        } catch (err) {
+            statusText.textContent = err.message;
+        }
+    });
+
+    chargerPartie();
+    setInterval(chargerPartie, 1000);
+    </script>
+</body>
+</html>

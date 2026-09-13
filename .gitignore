@@ -1,0 +1,14 @@
+node_modules/
+
+# Base SQLite locale generee par l'application
+*.db
+*.sqlite
+*.sqlite3
+
+# Fichiers d'environnement locaux
+.env
+.env.*
+!.env.example
+
+# Fichiers de logs
+*.log
