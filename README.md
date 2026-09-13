@@ -26,17 +26,26 @@ Le projet est divisé en trois modules développés en équipe :
 
 Projet réalisé en collaboration avec 2 coéquipiers :
 - Backend & Frontend : Noah
-- Vision par ordinateur (C++) : Robin
-- Réseau : Lucas
+- Vision par ordinateur (C++) : [nom coéquipier]
+- Réseau : [nom coéquipier]
 
 ## Installation
 
-\`\`\`bash
+```bash
 git clone https://github.com/scorp984/DARTS-project.git
 cd DARTS-project
 npm install
 npm start
-\`\`\`
+```
+
+## Configuration
+
+Par défaut, l'application utilise la base SQLite locale. Pour utiliser une base de données différente (par exemple pour des tests), définis la variable d'environnement `GAME301_DB_PATH` avant de lancer l'application :
+
+```powershell
+$env:GAME301_DB_PATH="C:\chemin\vers\leur-base.db"
+npm start
+```
 
 ## Stack technique
 
