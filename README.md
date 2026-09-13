@@ -26,8 +26,8 @@ Le projet est divisé en trois modules développés en équipe :
 
 Projet réalisé en collaboration avec 2 coéquipiers :
 - Backend & Frontend : Noah
-- Vision par ordinateur (C++) : [nom coéquipier]
-- Réseau : [nom coéquipier]
+- Vision par ordinateur (C++) : https://github.com/abateee
+- Réseau : Lucas
 
 ## Installation
 
