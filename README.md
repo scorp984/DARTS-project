@@ -25,7 +25,7 @@ Le projet est divisé en trois modules développés en équipe :
 ## Équipe
 
 Projet réalisé en collaboration avec 2 coéquipiers :
-- Backend & Frontend : [ton nom]
+- Backend & Frontend : Noah
 - Vision par ordinateur (C++) : [nom coéquipier]
 - Réseau : [nom coéquipier]
 
